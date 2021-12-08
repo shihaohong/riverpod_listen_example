@@ -5,9 +5,13 @@ final articleRepository = Provider<ArticleRepository>(
   (ref) => FakeArticleRepository(),
 );
 
+// the future provider for the list of articles.
 final articlesProvider = FutureProvider<List<Article>>((ref) async {
   return ref.watch(articleRepository).fetchArticles();
 });
+
+// the state provider that caches the list of articles for loading state.
+final cachedArticlesProvider = StateProvider<List<Article>?>((ref) => null);
 
 abstract class ArticleRepository {
   Future<List<Article>> fetchArticles();
@@ -15,7 +19,7 @@ abstract class ArticleRepository {
 
 // controls whether the future should return an error or data.
 // can adjust the initial value to test different cases.
-bool error = false;
+bool error = true;
 
 class FakeArticleRepository implements ArticleRepository {
   @override
@@ -77,20 +81,19 @@ class MyHomePage extends ConsumerStatefulWidget {
 }
 
 class _MyHomePageState extends ConsumerState<MyHomePage> {
-  // We use local state to cache the articles value.
-  List<Article>? currentSetOfArticles;
-
   @override
   Widget build(BuildContext context) {
-    ref.listen(articlesProvider, (_, AsyncValue<List<Article>> next) {
-      // when there's a new, non-error value that is non-null, save it to the
-      // cached local state.
-      if (next.value != null) {
-        setState(() {
-          currentSetOfArticles = next.value!;
-        });
-      }
-    });
+    ref.listen(
+      articlesProvider,
+      (_, AsyncValue<List<Article>> next) {
+        // when there's a new, non-error value that is non-null, save it to the
+        // cached state.
+        if (next.value != null) {
+          ref.watch(cachedArticlesProvider.state).state = next.value!;
+        }
+      },
+    );
+    final currentSetOfArticles = ref.watch(cachedArticlesProvider);
 
     final AsyncValue<List<Article>> articles = ref.watch(articlesProvider);
     return Scaffold(
