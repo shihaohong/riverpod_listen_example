@@ -13,7 +13,9 @@ abstract class ArticleRepository {
   Future<List<Article>> fetchArticles();
 }
 
-bool error = true;
+// controls whether the future should return an error or data.
+// can adjust the initial value to test different cases.
+bool error = false;
 
 class FakeArticleRepository implements ArticleRepository {
   @override
@@ -75,12 +77,14 @@ class MyHomePage extends ConsumerStatefulWidget {
 }
 
 class _MyHomePageState extends ConsumerState<MyHomePage> {
+  // We use local state to cache the articles value.
   List<Article>? currentSetOfArticles;
 
   @override
   Widget build(BuildContext context) {
-    final AsyncValue<List<Article>> articles = ref.watch(articlesProvider);
     ref.listen(articlesProvider, (_, AsyncValue<List<Article>> next) {
+      // when there's a new, non-error value that is non-null, save it to the
+      // cached local state.
       if (next.value != null) {
         setState(() {
           currentSetOfArticles = next.value!;
@@ -88,6 +92,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
       }
     });
 
+    final AsyncValue<List<Article>> articles = ref.watch(articlesProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Riverpod Listen'),
@@ -109,11 +114,15 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                 });
               },
             ),
+            // We still want the flutter UI to respond to the [FutureProvider]'s
+            // [AsyncValue]'s state.
+            // however, we ultimately want to show the value of
+            // the cached data, so we use that state to represent
             articles.when(
-              data: (List<Article> articles) {
+              data: (_) {
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: articles.map<Text>((Article article) {
+                  children: currentSetOfArticles!.map<Text>((Article article) {
                     return Text(article.name);
                   }).toList(),
                 );
@@ -122,6 +131,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                 return Column(
                   children: [
                     const CircularProgressIndicator(),
+                    // [currentSetOfArticles] can be null on initial load
                     if (currentSetOfArticles != null)
                       ...currentSetOfArticles!.map<Text>((Article article) {
                         return Text(article.name);
@@ -133,6 +143,7 @@ class _MyHomePageState extends ConsumerState<MyHomePage> {
                 return Column(
                   children: [
                     Text(error.toString()),
+                    // [currentSetOfArticles] can be null on initial load
                     if (currentSetOfArticles != null)
                       ...currentSetOfArticles!.map<Text>((Article article) {
                         return Text(article.name);
